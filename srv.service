@@ -1,0 +1,17 @@
+[Unit]
+Description=Bitmap to G-Code Converter
+After=network.target
+
+[Service]
+Type=simple
+User=exedev
+Group=exedev
+WorkingDirectory=/home/exedev/bitmap-to-gcode
+ExecStart=/home/exedev/bitmap-to-gcode/bitmap-to-gcode -listen :8000
+Restart=always
+RestartSec=5
+Environment=HOSTNAME=https://bitmap-to-gcode.exe.xyz:8000
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

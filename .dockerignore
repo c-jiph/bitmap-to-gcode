@@ -1,0 +1,21 @@
+# Binaries
+bitmap-to-gcode
+*.exe
+
+# Data directories
+uploads/
+ai_cache/
+*.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md

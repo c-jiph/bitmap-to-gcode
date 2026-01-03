@@ -1,0 +1,19 @@
+# Binaries
+bitmap-to-gcode
+*.exe
+
+# Data directories (created at runtime)
+uploads/
+ai_cache/
+*.db
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitmap to G-Code Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        .upload-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #007bff;
+            background: #f0f7ff;
+        }
+        .drop-zone p {
+            margin: 0 0 1rem 0;
+            color: #666;
+        }
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+        .file-info {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: #e8f4e8;
+            border-radius: 4px;
+            display: none;
+        }
+        .file-info.visible {
+            display: block;
+        }
+        .options {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #eee;
+        }
+        .options h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1rem;
+            color: #333;
+        }
+        .option-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .option-row label {
+            width: 100px;
+            color: #555;
+        }
+        .option-row input[type="number"] {
+            width: 120px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        .option-row input[type="text"] {
+            width: 200px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        .option-hint {
+            font-size: 0.85rem;
+            color: #888;
+            margin: 0.5rem 0 0 0;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 0.75rem;
+        }
+        .checkbox-row label {
+            width: auto;
+            cursor: pointer;
+        }
+        .ai-options {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f0f7ff;
+            border-radius: 4px;
+            border: 1px solid #cce5ff;
+        }
+        .ai-options.hidden {
+            display: none;
+        }
+        .api-key-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        .security-note {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #fff3cd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #fff3cd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .info h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .info ul {
+            margin-bottom: 0;
+            padding-left: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bitmap to G-Code Converter</h1>
+    <p class="subtitle">Convert images to G-Code using centerline tracing</p>
+
+    <form class="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+        <div class="drop-zone" id="dropZone">
+            <p>Drag & drop an image here, or click to select</p>
+            <input type="file" name="image" id="fileInput" accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tiff,.tif" required>
+            <small>Supports: PNG, JPG, WebP, BMP, GIF, TIFF</small>
+        </div>
+        <div class="file-info" id="fileInfo"></div>
+
+        <div class="options">
+            <h3>Output Dimensions (mm)</h3>
+            <div class="option-row">
+                <label for="maxWidth">Max Width:</label>
+                <input type="number" name="maxWidth" id="maxWidth" value="200" min="1" max="10000" step="1">
+            </div>
+            <div class="option-row">
+                <label for="maxHeight">Max Height:</label>
+                <input type="number" name="maxHeight" id="maxHeight" value="200" min="1" max="10000" step="1">
+            </div>
+            <p class="option-hint">Image will be scaled to fit within these dimensions while maintaining aspect ratio.</p>
+        </div>
+
+        <div class="options">
+            <h3>Tool Control G-Code</h3>
+            <div class="option-row">
+                <label for="toolOn">Tool On:</label>
+                <input type="text" name="toolOn" id="toolOn" value="S4 M0" placeholder="e.g. M3 S1000">
+            </div>
+            <div class="option-row">
+                <label for="toolOff">Tool Off:</label>
+                <input type="text" name="toolOff" id="toolOff" value="S4 M100" placeholder="e.g. M5">
+            </div>
+            <p class="option-hint">G-Code commands for turning the tool on/off (pen up/down, laser on/off, etc.)</p>
+        </div>
+
+        <div class="options">
+            <h3>AI Image Transformation (Optional)</h3>
+            <div class="checkbox-row">
+                <input type="checkbox" name="useAI" id="useAI">
+                <label for="useAI">Use AI to convert image to line art before processing</label>
+            </div>
+            <div class="ai-options hidden" id="aiOptions">
+                <label for="apiKey">Google Gemini API Key:</label>
+                <input type="password" name="apiKey" id="apiKey" class="api-key-input" placeholder="Enter your Gemini API key">
+                <div class="security-note">
+                    🔒 Your API key is stored only in your browser's local storage and is sent directly to Google's API. It is never stored on our server or logged.
+                </div>
+                <label for="aiPrompt" style="margin-top: 1rem; display: block;">AI Prompt:</label>
+                <textarea name="aiPrompt" id="aiPrompt" class="api-key-input" rows="4" placeholder="Enter custom prompt for AI transformation"></textarea>
+                <p class="option-hint" style="margin-top: 0.5rem;">Customize the instructions given to the AI for image transformation.</p>
+            </div>
+            <p class="option-hint">Uses Google's Gemini AI to transform photos into clean line art suitable for plotting.</p>
+        </div>
+
+        <button type="submit" id="submitBtn" disabled>Convert to G-Code</button>
+    </form>
+
+    <div class="info">
+        <h3>How it works</h3>
+        <ul>
+            <li><strong>autotrace</strong> traces the centerline of your image to create an SVG</li>
+            <li><strong>svg2gcode</strong> converts the SVG paths to G-Code</li>
+            <li>The result is optimized for pen plotters, laser engravers, or CNC machines</li>
+        </ul>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const submitBtn = document.getElementById('submitBtn');
+        const useAICheckbox = document.getElementById('useAI');
+        const aiOptions = document.getElementById('aiOptions');
+        const apiKeyInput = document.getElementById('apiKey');
+        const aiPromptInput = document.getElementById('aiPrompt');
+        const maxWidthInput = document.getElementById('maxWidth');
+        const maxHeightInput = document.getElementById('maxHeight');
+        const toolOnInput = document.getElementById('toolOn');
+        const toolOffInput = document.getElementById('toolOff');
+
+        // Default AI prompt
+        const DEFAULT_AI_PROMPT = "Reduce this image to a two color line-art image suitable for use in a child's coloring book. The lines should be black and the background white. The image will be reproduced by an X-Y plotter, so the final image should have only lines (no solid/filled areas).";
+
+        // LocalStorage keys
+        const STORAGE_KEYS = {
+            apiKey: 'bitmap2gcode_apiKey',
+            aiPrompt: 'bitmap2gcode_aiPrompt',
+            maxWidth: 'bitmap2gcode_maxWidth',
+            maxHeight: 'bitmap2gcode_maxHeight',
+            toolOn: 'bitmap2gcode_toolOn',
+            toolOff: 'bitmap2gcode_toolOff',
+            useAI: 'bitmap2gcode_useAI'
+        };
+
+        // Load saved values from localStorage
+        function loadSavedSettings() {
+            const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey);
+            if (savedApiKey) apiKeyInput.value = savedApiKey;
+
+            // Load AI prompt - use saved value or default
+            const savedAiPrompt = localStorage.getItem(STORAGE_KEYS.aiPrompt);
+            aiPromptInput.value = savedAiPrompt || DEFAULT_AI_PROMPT;
+
+            const savedMaxWidth = localStorage.getItem(STORAGE_KEYS.maxWidth);
+            if (savedMaxWidth) maxWidthInput.value = savedMaxWidth;
+
+            const savedMaxHeight = localStorage.getItem(STORAGE_KEYS.maxHeight);
+            if (savedMaxHeight) maxHeightInput.value = savedMaxHeight;
+
+            const savedToolOn = localStorage.getItem(STORAGE_KEYS.toolOn);
+            if (savedToolOn) toolOnInput.value = savedToolOn;
+
+            const savedToolOff = localStorage.getItem(STORAGE_KEYS.toolOff);
+            if (savedToolOff) toolOffInput.value = savedToolOff;
+
+            const savedUseAI = localStorage.getItem(STORAGE_KEYS.useAI);
+            if (savedUseAI === 'true') {
+                useAICheckbox.checked = true;
+                aiOptions.classList.remove('hidden');
+            }
+        }
+
+        // Save settings to localStorage
+        function saveSettings() {
+            localStorage.setItem(STORAGE_KEYS.apiKey, apiKeyInput.value);
+            localStorage.setItem(STORAGE_KEYS.aiPrompt, aiPromptInput.value);
+            localStorage.setItem(STORAGE_KEYS.maxWidth, maxWidthInput.value);
+            localStorage.setItem(STORAGE_KEYS.maxHeight, maxHeightInput.value);
+            localStorage.setItem(STORAGE_KEYS.toolOn, toolOnInput.value);
+            localStorage.setItem(STORAGE_KEYS.toolOff, toolOffInput.value);
+            localStorage.setItem(STORAGE_KEYS.useAI, useAICheckbox.checked);
+        }
+
+        // Toggle AI options visibility
+        useAICheckbox.addEventListener('change', () => {
+            if (useAICheckbox.checked) {
+                aiOptions.classList.remove('hidden');
+            } else {
+                aiOptions.classList.add('hidden');
+            }
+            saveSettings();
+        });
+
+        // Save settings on change
+        apiKeyInput.addEventListener('change', saveSettings);
+        aiPromptInput.addEventListener('change', saveSettings);
+        maxWidthInput.addEventListener('change', saveSettings);
+        maxHeightInput.addEventListener('change', saveSettings);
+        toolOnInput.addEventListener('change', saveSettings);
+        toolOffInput.addEventListener('change', saveSettings);
+
+        // Drop zone handlers
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+
+        fileInput.addEventListener('change', updateFileInfo);
+
+        function updateFileInfo() {
+            if (fileInput.files.length) {
+                const file = fileInput.files[0];
+                const size = (file.size / 1024).toFixed(1);
+                fileInfo.textContent = `Selected: ${file.name} (${size} KB)`;
+                fileInfo.classList.add('visible');
+                submitBtn.disabled = false;
+            } else {
+                fileInfo.classList.remove('visible');
+                submitBtn.disabled = true;
+            }
+        }
+
+        // Load saved settings on page load
+        loadSavedSettings();
+    </script>
+</body>
+</html>

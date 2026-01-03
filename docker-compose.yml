@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bitmap-to-gcode:
+    build: .
+    image: bitmap-to-gcode:latest
+    container_name: bitmap-to-gcode
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/data/uploads
+      - ./ai_cache:/data/ai_cache
+      - ./ai_cache.db:/data/ai_cache.db
+    environment:
+      - HOSTNAME=bitmap-to-gcode.exe.xyz:8000
